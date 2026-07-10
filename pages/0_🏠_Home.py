@@ -10,8 +10,7 @@ render_top_nav("home")
 st.title("📄 AI-Powered Resume Builder")
 st.markdown(
     """
-    Build an ATS-friendly resume tailored to a job description --
-    without inventing experience or skills you don't have.
+    Build an ATS-friendly resume tailored to a job description
     """
 )
 
