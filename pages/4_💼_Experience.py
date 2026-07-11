@@ -7,9 +7,18 @@ open while editing (see the `key=` on st.expander below).
 """
 import streamlit as st
 
+from utils import ai_assistant as ai
 from utils.date_picker import is_start_after_end, month_year_input
 from utils.navigation import render_prev_next, render_top_nav
-from utils.session_manager import add_experience, get_resume_data, init_session_state, remove_experience
+from utils.session_manager import (
+    add_experience,
+    form_key,
+    get_job_description,
+    get_resume_data,
+    init_session_state,
+    refresh_field,
+    remove_experience,
+)
 
 init_session_state()
 render_top_nav("experience")
@@ -24,6 +33,10 @@ st.caption(
 if st.button("➕ Add Experience Entry"):
     add_experience()
     st.rerun()
+
+ai_ready = ai.is_configured()
+if resume.experience and not ai_ready:
+    ai.render_unavailable_notice()
 
 if not resume.experience:
     st.info("No experience entries yet. Click **Add Experience Entry** to start.")
@@ -53,7 +66,7 @@ for entry in resume.experience:
             bullets_text = st.text_area(
                 "Responsibilities & Achievements (one bullet per line) *",
                 value="\n".join(entry.bullet_points),
-                key=f"exp_bullets_{entry.id}",
+                key=form_key(f"exp_bullets_{entry.id}"),
                 height=140,
                 help="Describe what you actually did. Use action verbs and, where possible, quantify results.",
             )
@@ -79,6 +92,34 @@ for entry in resume.experience:
                 entry.end_date = "Present" if is_current else end_date
                 entry.bullet_points = [line.strip() for line in bullets_text.split("\n") if line.strip()]
                 st.success("Entry saved.")
+
+        # --- AI: rewrite this role's saved bullet points ----------------------
+        if ai_ready and entry.bullet_points:
+            st.caption("✨ AI rewrites your **saved** bullets (save any edits first).")
+            if st.button("✨ Improve bullet points with AI", key=f"ai_exp_{entry.id}"):
+                with st.spinner("Rewriting bullet points..."):
+                    try:
+                        st.session_state[f"ai_bullets_{entry.id}"] = ai.rewrite_bullets(
+                            entry.job_title, entry.company, entry.bullet_points, get_job_description()
+                        )
+                    except ai.AIError as exc:
+                        st.session_state.pop(f"ai_bullets_{entry.id}", None)
+                        st.error(str(exc))
+
+            proposal = st.session_state.get(f"ai_bullets_{entry.id}")
+            if proposal:
+                st.markdown("**Proposed bullet points:**")
+                for bullet in proposal:
+                    st.markdown(f"- {bullet}")
+                col_use, col_discard = st.columns(2)
+                if col_use.button("✅ Use these", key=f"use_bullets_{entry.id}", type="primary", width="stretch"):
+                    entry.bullet_points = proposal
+                    refresh_field(f"exp_bullets_{entry.id}")
+                    st.session_state.pop(f"ai_bullets_{entry.id}", None)
+                    st.rerun()
+                if col_discard.button("✕ Discard", key=f"discard_bullets_{entry.id}", width="stretch"):
+                    st.session_state.pop(f"ai_bullets_{entry.id}", None)
+                    st.rerun()
 
         if st.button("🗑️ Remove This Entry", key=f"exp_remove_{entry.id}"):
             remove_experience(entry.id)

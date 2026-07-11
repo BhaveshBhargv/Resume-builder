@@ -4,7 +4,9 @@ A web app for building an ATS-friendly resume tailored to a specific job
 description -- without inventing experience, skills, or qualifications the
 user doesn't have.
 
-## Status: Phase 3 complete
+**🔗 Live demo:** https://resume-builder-4kmyg83ru5rh6gygffosls.streamlit.app/
+
+## Status: Phase 4 complete
 
 - [x] **Phase 1** -- Personal details, Education, Experience, Projects, and
       Skills forms.
@@ -15,15 +17,19 @@ user doesn't have.
 - [x] **Phase 3** -- Paste/upload a job description, extract its keywords,
       compare them against the resume, and show an ATS match score plus the
       matched and missing keywords.
-- [ ] **Phase 4** -- AI-generated professional summary, AI rewrite of
-      experience bullet points, AI project description enhancement, AI
-      resume improvement suggestions.
+- [x] **Phase 4** -- AI (Google Gemini) drafts a professional summary,
+      rewrites experience bullet points, enhances project descriptions, and
+      gives whole-resume improvement suggestions -- only ever rephrasing
+      content you already entered, never inventing anything.
 
 ## Tech Stack
 
 Python, Streamlit, pypdf, python-docx, reportlab, pandas, scikit-learn,
-OpenAI API (Phase 4). (The original stack listed spaCy for Phase 3; see the
-Phase 3 notes below for why scikit-learn is used instead.)
+google-genai (Google Gemini). Two deviations from the originally-listed
+stack, each explained in its phase notes below: **scikit-learn** replaces
+spaCy for Phase 3 (no runtime model download), and **Google Gemini**
+replaces the OpenAI API for Phase 4 (Gemini has a free API tier, so the
+deployed app can run at no cost).
 
 ## Project Structure
 
@@ -39,7 +45,8 @@ resume-builder/
 │   ├── date_picker.py      # Month + Year dropdown pair for resume dates
 │   ├── navigation.py       # Page order + custom top bar / Previous-Next buttons
 │   ├── resume_parser.py    # Best-effort .pdf/.docx/.txt resume text extraction + parsing
-│   └── ats_analyzer.py     # JD keyword extraction + resume match scoring
+│   ├── ats_analyzer.py     # JD keyword extraction + resume match scoring
+│   └── ai_assistant.py     # Gemini client + never-invent prompts (summary/bullets/suggestions)
 │   (docx_export.py, resume_generator.py added in later phases)
 ├── pages/                  # One Streamlit page per section (order controlled by utils/navigation.py, not filenames)
 │   ├── 0_🏠_Home.py
@@ -167,6 +174,49 @@ resume-builder/
   only if you genuinely have the experience"** -- the app never rewrites the
   resume or invents a skill.
 
+### Phase 4 -- AI writing assistant (Google Gemini)
+
+- `utils/ai_assistant.py` wraps Google's `google-genai` SDK and exposes four
+  features, surfaced in-context on the pages they relate to:
+  - **Professional summary** (Personal Details) -- drafts a 2-3 sentence
+    summary from the experience, projects, and skills you entered.
+  - **Bullet-point rewrite** (Experience, per role) -- tightens your saved
+    bullets into stronger, action-verb-led phrasing.
+  - **Project enhancement** (Projects, per project) -- polishes the
+    description and bullet points.
+  - **Resume suggestions** (Review) -- read-only, actionable advice on the
+    whole resume.
+- **Never fabricates.** A strict system prompt forbids inventing employers,
+  dates, metrics, technologies, or skills; every function only rephrases
+  content you already provided. All output is shown as a **proposal you
+  explicitly accept or discard** -- nothing is written into your resume
+  silently. If a job description was entered on the ATS Match page, the
+  summary, bullets, and suggestions gently tailor emphasis toward it (still
+  without adding anything you didn't state).
+- **Why Gemini instead of OpenAI.** The original stack named the OpenAI API,
+  but Gemini has a genuine free API tier, so the deployed app can run at no
+  cost. The provider is isolated in `ai_assistant.py`, so swapping it is a
+  one-file change.
+- Under the hood, accepting a proposal writes back into the form field via a
+  small revision-nonce on the widget key (`session_manager.form_key` /
+  `refresh_field`), because Streamlit otherwise ignores a keyed widget's
+  `value=` once the user has touched it.
+
+### AI setup (required for Phase 4 features)
+
+The AI features are hidden until a Gemini API key is present; everything else
+works without one.
+
+1. Get a free key at https://aistudio.google.com/apikey
+2. **Locally:** create `.streamlit/secrets.toml` (git-ignored) with:
+   ```toml
+   GEMINI_API_KEY = "your-key-here"
+   # optional: GEMINI_MODEL = "gemini-2.0-flash"
+   ```
+   or set the `GEMINI_API_KEY` environment variable.
+3. **On Streamlit Community Cloud:** add `GEMINI_API_KEY` under the app's
+   **Settings → Secrets**.
+
 ## Setup
 
 ```bash
@@ -179,7 +229,8 @@ streamlit run app.py
 
 The app opens at `http://localhost:8501`. All data lives in the browser
 session only (nothing is persisted to disk yet) -- refreshing the page or
-closing the tab clears it.
+closing the tab clears it. See **AI setup** above to enable the Phase 4
+features.
 
 ## Rules Followed by Design
 

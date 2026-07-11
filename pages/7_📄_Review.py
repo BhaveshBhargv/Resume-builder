@@ -3,8 +3,9 @@
 import pandas as pd
 import streamlit as st
 
+from utils import ai_assistant as ai
 from utils.navigation import render_prev_next, render_top_nav
-from utils.session_manager import get_resume_data, init_session_state
+from utils.session_manager import get_job_description, get_resume_data, init_session_state
 
 init_session_state()
 render_top_nav("review")
@@ -92,5 +93,31 @@ if resume.extra_sections:
     for extra in resume.extra_sections:
         with st.expander(extra.heading):
             st.text(extra.content)
+
+# --- AI: whole-resume improvement suggestions ----------------------------------
+st.divider()
+st.subheader("✨ AI: Resume Suggestions")
+st.caption("Read-only, actionable advice on your whole resume. It never edits or invents content.")
+
+if not ai.is_configured():
+    ai.render_unavailable_notice()
+else:
+    jd = get_job_description()
+    if jd.strip():
+        st.caption("ℹ️ Suggestions consider the job description from the ATS Match page.")
+    if st.button("Get AI suggestions", key="gen_suggestions"):
+        with st.spinner("Reviewing your resume..."):
+            try:
+                st.session_state["ai_suggestions"] = ai.suggest_improvements(resume, jd)
+            except ai.AIError as exc:
+                st.session_state.pop("ai_suggestions", None)
+                st.error(str(exc))
+
+    suggestions = st.session_state.get("ai_suggestions")
+    if suggestions:
+        st.markdown(suggestions)
+        if st.button("✕ Clear suggestions", key="clear_suggestions"):
+            st.session_state.pop("ai_suggestions", None)
+            st.rerun()
 
 render_prev_next("review")

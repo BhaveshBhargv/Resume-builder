@@ -13,8 +13,9 @@ scikit-learn>=1.5.1
 # extractor instead, which is more robust in a sandboxed environment.
 # spacy>=3.7.5
 
-# Phase 4 (AI rewriting) -- added when Phase 4 starts
-# openai>=1.40.0
+# Phase 4 -- AI rewriting via Google Gemini (has a free API tier; the original
+# stack named OpenAI, but Gemini's free tier lets the deployed app run at no cost).
+google-genai>=1.0.0
 
 # Document export -- added when export feature is built
 # reportlab>=4.2.2

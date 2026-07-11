@@ -1,8 +1,15 @@
 """Page 1: Personal details form (name, contact info, professional summary)."""
 import streamlit as st
 
+from utils import ai_assistant as ai
 from utils.navigation import render_prev_next, render_top_nav
-from utils.session_manager import get_resume_data, init_session_state
+from utils.session_manager import (
+    form_key,
+    get_job_description,
+    get_resume_data,
+    init_session_state,
+    refresh_field,
+)
 from utils.validators import is_valid_email, is_valid_phone, is_valid_url, normalize_url
 
 init_session_state()
@@ -31,10 +38,11 @@ with st.form("personal_details_form"):
         )
 
     professional_summary = st.text_area(
-        "Professional Summary (optional -- AI can help write this in a later phase)",
+        "Professional Summary (optional -- use the AI assistant below to draft it)",
         value=info.professional_summary,
         height=120,
-        help="A 2-3 sentence summary of your background. Leave blank if you'd like AI assistance later.",
+        key=form_key("personal_summary"),
+        help="A 2-3 sentence summary of your background.",
     )
 
     submitted = st.form_submit_button("Save Personal Details", type="primary")
@@ -75,5 +83,37 @@ if submitted:
         info.portfolio_url = portfolio_normalized
         info.professional_summary = professional_summary.strip()
         st.success("Personal details saved.")
+
+# --- AI: professional summary --------------------------------------------------
+st.divider()
+st.subheader("✨ AI: Professional Summary")
+st.caption("Drafts a summary from the experience, projects, and skills you've entered -- nothing invented.")
+
+if not ai.is_configured():
+    ai.render_unavailable_notice()
+else:
+    jd = get_job_description()
+    if jd.strip():
+        st.caption("ℹ️ Tailoring emphasis to the job description from the ATS Match page.")
+    if st.button("Generate summary with AI", key="gen_summary"):
+        with st.spinner("Writing your summary..."):
+            try:
+                st.session_state["ai_summary_proposal"] = ai.generate_summary(resume, jd)
+            except ai.AIError as exc:
+                st.session_state.pop("ai_summary_proposal", None)
+                st.error(str(exc))
+
+    proposal = st.session_state.get("ai_summary_proposal")
+    if proposal:
+        st.text_area("Proposed summary", value=proposal, height=120, disabled=True, key="ai_summary_preview")
+        col_use, col_discard = st.columns(2)
+        if col_use.button("✅ Use this summary", key="use_summary", type="primary", width="stretch"):
+            info.professional_summary = proposal
+            refresh_field("personal_summary")
+            st.session_state.pop("ai_summary_proposal", None)
+            st.rerun()
+        if col_discard.button("✕ Discard", key="discard_summary", width="stretch"):
+            st.session_state.pop("ai_summary_proposal", None)
+            st.rerun()
 
 render_prev_next("personal")

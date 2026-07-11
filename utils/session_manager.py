@@ -53,6 +53,28 @@ def set_job_description(text: str) -> None:
     st.session_state[_JD_KEY] = text
 
 
+def form_key(base: str) -> str:
+    """Return a versioned widget key for `base`.
+
+    Streamlit ignores a keyed widget's `value=` once the user has interacted
+    with it, so writing AI-generated text back into `entry.<field>` wouldn't
+    show up in the form. Including a revision number in the key -- bumped by
+    refresh_field() -- makes Streamlit treat it as a fresh widget on the next
+    run, so it re-reads `value=`. Used by the Phase 4 AI features.
+    """
+    rev = st.session_state.get(f"__rev_{base}", 0)
+    return f"{base}__v{rev}"
+
+
+def refresh_field(base: str) -> None:
+    """Bump the revision for `base` so its form widget re-initialises from value=.
+
+    Safe to call anytime: it only mutates a plain `__rev_*` key, never a live
+    widget key, so it avoids Streamlit's "cannot modify after instantiation" error.
+    """
+    st.session_state[f"__rev_{base}"] = st.session_state.get(f"__rev_{base}", 0) + 1
+
+
 def add_education() -> EducationEntry:
     entry = EducationEntry()
     get_resume_data().education.append(entry)
