@@ -4,8 +4,6 @@ A web app for building an ATS-friendly resume tailored to a specific job
 description -- without inventing experience, skills, or qualifications the
 user doesn't have. 
 
-Link: https://resume-builder-4kmyg83ru5rh6gygffosls.streamlit.app/
-
 ## Status: Phase 3 complete
 
 - [x] **Phase 1** -- Personal details, Education, Experience, Projects, and
