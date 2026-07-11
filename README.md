@@ -2,7 +2,7 @@
 
 A web app for building an ATS-friendly resume tailored to a specific job
 description -- without inventing experience, skills, or qualifications the
-user doesn't have.
+user doesn't have. 
 
 **🔗 Live demo:** https://resume-builder-4kmyg83ru5rh6gygffosls.streamlit.app/
 
