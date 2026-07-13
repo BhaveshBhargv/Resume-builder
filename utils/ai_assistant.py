@@ -120,16 +120,29 @@ def _generate(prompt: str, temperature: float = 0.4) -> str:
                 {"role": "user", "content": prompt},
             ],
             temperature=temperature,
-            max_tokens=1024,
+            # Generous headroom: hy3 is a reasoning model, so a small budget can
+            # get consumed before any answer text is produced (this is why the
+            # longest generation -- the suggestions list -- came back empty).
+            max_tokens=3000,
+            # Ask OpenRouter to run the model in direct (no chain-of-thought)
+            # mode so the whole budget goes to the answer, not to thinking.
+            # OpenRouter ignores this for models that don't support it.
+            extra_body={"reasoning": {"enabled": False}},
         )
     except Exception as exc:  # noqa: BLE001 -- surface any API problem to the caller
         raise AIError(str(exc)) from exc
 
     if not response.choices:
         raise AIError("The model returned no choices. Try again.")
-    text = (response.choices[0].message.content or "").strip()
+    choice = response.choices[0]
+    text = (choice.message.content or "").strip()
     if not text:
-        raise AIError("The model returned an empty response. Try again.")
+        if getattr(choice, "finish_reason", None) == "length":
+            raise AIError("The response was cut off before any text was produced. Try again.")
+        raise AIError(
+            "The model returned an empty response. Try again -- if it keeps happening, "
+            "the free tier may be busy; set OPENROUTER_MODEL to 'tencent/hy3'."
+        )
     return text
 
 
