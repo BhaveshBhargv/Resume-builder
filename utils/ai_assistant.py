@@ -120,14 +120,14 @@ def _generate(prompt: str, temperature: float = 0.4) -> str:
                 {"role": "user", "content": prompt},
             ],
             temperature=temperature,
-            # Generous headroom: hy3 is a reasoning model, so a small budget can
-            # get consumed before any answer text is produced (this is why the
-            # longest generation -- the suggestions list -- came back empty).
-            max_tokens=3000,
-            # Ask OpenRouter to run the model in direct (no chain-of-thought)
-            # mode so the whole budget goes to the answer, not to thinking.
-            # OpenRouter ignores this for models that don't support it.
-            extra_body={"reasoning": {"enabled": False}},
+            # hy3 is a reasoning model: it spends tokens "thinking" before it
+            # writes the answer, and those thinking tokens count against the
+            # budget. A small cap gets fully consumed by reasoning, leaving no
+            # room for the answer (empty content, finish_reason="length").
+            # So: a large total budget, plus a hard cap on reasoning tokens so
+            # the bulk is always left for the actual answer.
+            max_tokens=8000,
+            extra_body={"reasoning": {"max_tokens": 1200}},
         )
     except Exception as exc:  # noqa: BLE001 -- surface any API problem to the caller
         raise AIError(str(exc)) from exc
