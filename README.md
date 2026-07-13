@@ -62,8 +62,8 @@ resume-builder/
 │   ├── 4_💼_Experience.py
 │   ├── 5_🚀_Projects.py
 │   ├── 6_🛠️_Skills.py
-│   ├── 7_📄_Review.py
-│   ├── 8_🎯_ATS_Match.py
+│   ├── 7_🎯_ATS_Match.py
+│   ├── 8_📄_Review.py
 │   └── 9_⬇️_Download.py
 ├── assets/                 # Static assets (icons, sample data, etc.)
 ├── templates/              # Resume document templates (reserved for future custom exporters)
@@ -109,7 +109,7 @@ resume-builder/
   them as a plain `"Aug 2019"` string. `is_start_after_end()` blocks saving
   an entry where the start date comes after the end date.
 - GPA uses `st.number_input` so only numeric values can be entered at all.
-- `pages/7_📄_Review.py` gives a read-only summary of everything entered so
+- `pages/8_📄_Review.py` gives a read-only summary of everything entered so
   far, and flags which sections are still incomplete.
 
 ### Phase 2 -- Upload an existing resume

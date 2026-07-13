@@ -31,8 +31,8 @@ PAGES: List[PageInfo] = [
     PageInfo("experience", "pages/4_💼_Experience.py", "Experience", "💼"),
     PageInfo("projects", "pages/5_🚀_Projects.py", "Projects", "🚀"),
     PageInfo("skills", "pages/6_🛠️_Skills.py", "Skills", "🛠️"),
-    PageInfo("review", "pages/7_📄_Review.py", "Review", "📄"),
-    PageInfo("ats", "pages/8_🎯_ATS_Match.py", "ATS Match", "🎯"),
+    PageInfo("ats", "pages/7_🎯_ATS_Match.py", "ATS Match", "🎯"),
+    PageInfo("review", "pages/8_📄_Review.py", "Review", "📄"),
     PageInfo("download", "pages/9_⬇️_Download.py", "Download", "⬇️"),
 ]
 
