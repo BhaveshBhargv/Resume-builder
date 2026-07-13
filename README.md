@@ -2,11 +2,11 @@
 
 A web app for building an ATS-friendly resume tailored to a specific job
 description -- without inventing experience, skills, or qualifications the
-user doesn't have. 
+user doesn't have.
 
 **🔗 Live demo:** https://resume-builder-4kmyg83ru5rh6gygffosls.streamlit.app/
 
-## Status: Phase 4 complete
+## Status: Complete (all phases + export)
 
 - [x] **Phase 1** -- Personal details, Education, Experience, Projects, and
       Skills forms.
@@ -17,19 +17,24 @@ user doesn't have.
 - [x] **Phase 3** -- Paste/upload a job description, extract its keywords,
       compare them against the resume, and show an ATS match score plus the
       matched and missing keywords.
-- [x] **Phase 4** -- AI (Google Gemini) drafts a professional summary,
-      rewrites experience bullet points, enhances project descriptions, and
-      gives whole-resume improvement suggestions -- only ever rephrasing
-      content you already entered, never inventing anything.
+- [x] **Phase 4** -- AI (Tencent Hunyuan 3 via OpenRouter) drafts a
+      professional summary, rewrites experience bullet points, enhances
+      project descriptions, and gives whole-resume improvement suggestions --
+      only ever rephrasing content you already entered, never inventing
+      anything.
+- [x] **Export** -- Download the finished resume as an ATS-friendly Word
+      (.docx) or PDF file (single column, standard headings, real bullets,
+      no tables or graphics).
 
 ## Tech Stack
 
 Python, Streamlit, pypdf, python-docx, reportlab, pandas, scikit-learn,
-google-genai (Google Gemini). Two deviations from the originally-listed
-stack, each explained in its phase notes below: **scikit-learn** replaces
-spaCy for Phase 3 (no runtime model download), and **Google Gemini**
-replaces the OpenAI API for Phase 4 (Gemini has a free API tier, so the
-deployed app can run at no cost).
+openai (used as an OpenAI-compatible client for OpenRouter). Two deviations
+from the originally-listed stack, each explained in its phase notes below:
+**scikit-learn** replaces spaCy for Phase 3 (no runtime model download), and
+Phase 4 uses **Tencent Hunyuan 3 (`tencent/hy3:free`) via OpenRouter** instead
+of the OpenAI API directly, since Hunyuan 3 has a free tier so the deployed
+app can run at no cost.
 
 ## Project Structure
 
@@ -46,8 +51,9 @@ resume-builder/
 │   ├── navigation.py       # Page order + custom top bar / Previous-Next buttons
 │   ├── resume_parser.py    # Best-effort .pdf/.docx/.txt resume text extraction + parsing
 │   ├── ats_analyzer.py     # JD keyword extraction + resume match scoring
-│   └── ai_assistant.py     # Gemini client + never-invent prompts (summary/bullets/suggestions)
-│   (docx_export.py, resume_generator.py added in later phases)
+│   ├── ai_assistant.py     # OpenRouter/Hunyuan client + never-invent prompts (summary/bullets/suggestions)
+│   ├── docx_export.py      # ATS-friendly Word (.docx) export
+│   └── pdf_export.py       # ATS-friendly PDF export
 ├── pages/                  # One Streamlit page per section (order controlled by utils/navigation.py, not filenames)
 │   ├── 0_🏠_Home.py
 │   ├── 1_📤_Upload_Resume.py
@@ -57,9 +63,10 @@ resume-builder/
 │   ├── 5_🚀_Projects.py
 │   ├── 6_🛠️_Skills.py
 │   ├── 7_📄_Review.py
-│   └── 8_🎯_ATS_Match.py
+│   ├── 8_🎯_ATS_Match.py
+│   └── 9_⬇️_Download.py
 ├── assets/                 # Static assets (icons, sample data, etc.)
-├── templates/              # Resume document templates (used by the exporter, Phase 4)
+├── templates/              # Resume document templates (reserved for future custom exporters)
 └── output/                 # Generated resume files (git-ignored)
 ```
 
@@ -174,10 +181,11 @@ resume-builder/
   only if you genuinely have the experience"** -- the app never rewrites the
   resume or invents a skill.
 
-### Phase 4 -- AI writing assistant (Google Gemini)
+### Phase 4 -- AI writing assistant (Tencent Hunyuan 3 via OpenRouter)
 
-- `utils/ai_assistant.py` wraps Google's `google-genai` SDK and exposes four
-  features, surfaced in-context on the pages they relate to:
+- `utils/ai_assistant.py` calls an OpenAI-compatible chat API (the `openai`
+  SDK pointed at OpenRouter, serving Tencent's `tencent/hy3:free`) and exposes
+  four features, surfaced in-context on the pages they relate to:
   - **Professional summary** (Personal Details) -- drafts a 2-3 sentence
     summary from the experience, projects, and skills you entered.
   - **Bullet-point rewrite** (Experience, per role) -- tightens your saved
@@ -193,10 +201,13 @@ resume-builder/
   silently. If a job description was entered on the ATS Match page, the
   summary, bullets, and suggestions gently tailor emphasis toward it (still
   without adding anything you didn't state).
-- **Why Gemini instead of OpenAI.** The original stack named the OpenAI API,
-  but Gemini has a genuine free API tier, so the deployed app can run at no
-  cost. The provider is isolated in `ai_assistant.py`, so swapping it is a
-  one-file change.
+- **Why Hunyuan 3 via OpenRouter.** OpenRouter exposes an OpenAI-compatible
+  endpoint, and Hunyuan 3 has a free tier (`tencent/hy3:free`), so the
+  deployed app can run at no cost. Because it's OpenAI-compatible, `base URL`,
+  `model`, and `key` are all configurable (`OPENROUTER_BASE_URL`,
+  `OPENROUTER_MODEL`, `OPENROUTER_API_KEY`) -- point it at a different
+  OpenAI-compatible provider or model with zero code changes. The whole
+  integration is isolated in `ai_assistant.py`.
 - Under the hood, accepting a proposal writes back into the form field via a
   small revision-nonce on the widget key (`session_manager.form_key` /
   `refresh_field`), because Streamlit otherwise ignores a keyed widget's
@@ -204,18 +215,35 @@ resume-builder/
 
 ### AI setup (required for Phase 4 features)
 
-The AI features are hidden until a Gemini API key is present; everything else
-works without one.
+The AI features are hidden until an OpenRouter API key is present; everything
+else works without one.
 
-1. Get a free key at https://aistudio.google.com/apikey
+1. Get a key at https://openrouter.ai/keys (the `tencent/hy3:free` model is free).
 2. **Locally:** create `.streamlit/secrets.toml` (git-ignored) with:
    ```toml
-   GEMINI_API_KEY = "your-key-here"
-   # optional: GEMINI_MODEL = "gemini-2.0-flash"
+   OPENROUTER_API_KEY = "your-key-here"
+   # optional overrides:
+   # OPENROUTER_MODEL = "tencent/hy3:free"
+   # OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
    ```
-   or set the `GEMINI_API_KEY` environment variable.
-3. **On Streamlit Community Cloud:** add `GEMINI_API_KEY` under the app's
+   or set the `OPENROUTER_API_KEY` environment variable.
+3. **On Streamlit Community Cloud:** add `OPENROUTER_API_KEY` under the app's
    **Settings → Secrets**.
+
+Note: free-tier models are rate-limited (a capped number of requests per day);
+switch `OPENROUTER_MODEL` to `tencent/hy3` (paid) if you hit the limit.
+
+### Export -- download the finished resume
+
+- The **Download** page turns the current `ResumeData` into a **Word (.docx)**
+  file (`utils/docx_export.py`, python-docx) or a **PDF** (`utils/pdf_export.py`,
+  reportlab), delivered via `st.download_button`.
+- Both use the same deliberately plain, **ATS-friendly** layout: one column,
+  standard fonts, uppercase section headings with a thin rule, and real bullet
+  lists -- no tables, text boxes, columns, or images, since those are what
+  applicant-tracking systems fail to parse. Everything the app entered
+  (including uploaded "extra sections") is included, and `is_current` roles
+  render as `… – Present`.
 
 ## Setup
 

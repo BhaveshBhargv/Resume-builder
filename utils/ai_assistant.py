@@ -1,4 +1,4 @@
-"""Gemini-backed AI writing assistant for Phase 4.
+"""AI writing assistant for Phase 4, backed by Tencent Hunyuan 3 via OpenRouter.
 
 Every function here only ever *rephrases or organizes content the user has
 already entered*. The system prompt forbids inventing employers, dates,
@@ -7,9 +7,11 @@ suggestion the user must explicitly accept -- pages never overwrite the
 resume silently. This keeps the whole app aligned with its core rule:
 never fabricate experience or qualifications.
 
-Uses Google's `google-genai` SDK against a Gemini model. Gemini has a free
-API tier, so the deployed app can run at no cost; the user supplies their own
-key via Streamlit secrets (`GEMINI_API_KEY`) or the environment.
+Calls the OpenAI-compatible chat API. It defaults to OpenRouter serving
+Tencent's Hunyuan 3 free tier (`tencent/hy3:free`), but base URL, model, and
+key are all configurable, so any OpenAI-compatible endpoint works. The user
+supplies their own key via Streamlit secrets (`OPENROUTER_API_KEY`) or the
+environment.
 """
 from __future__ import annotations
 
@@ -24,7 +26,8 @@ from models.resume_data import ResumeData
 # Leading "1. " / "2) " style list numbering to strip from model output.
 _LIST_NUMBER_RE = re.compile(r"^\d+[.)]\s+")
 
-_DEFAULT_MODEL = "gemini-2.0-flash"  # free-tier; override with GEMINI_MODEL
+_DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
+_DEFAULT_MODEL = "tencent/hy3:free"  # Hunyuan 3 free tier on OpenRouter; override with OPENROUTER_MODEL
 
 _SYSTEM_PROMPT = (
     "You are an expert resume editor. You rewrite resume content to be concise, "
@@ -62,26 +65,31 @@ def _get_secret(name: str) -> Optional[str]:
 
 
 def _api_key() -> Optional[str]:
-    return _get_secret("GEMINI_API_KEY")
+    return _get_secret("OPENROUTER_API_KEY")
 
 
 def _model_name() -> str:
-    return _get_secret("GEMINI_MODEL") or _DEFAULT_MODEL
+    return _get_secret("OPENROUTER_MODEL") or _DEFAULT_MODEL
+
+
+def _base_url() -> str:
+    return _get_secret("OPENROUTER_BASE_URL") or _DEFAULT_BASE_URL
 
 
 def is_configured() -> bool:
-    """True if a Gemini API key is available, so AI features can run."""
+    """True if an OpenRouter API key is available, so AI features can run."""
     return bool(_api_key())
 
 
 def render_unavailable_notice() -> None:
     """Shown in place of AI controls when no API key is configured."""
     st.info(
-        "**AI features need a free Google Gemini API key.**\n\n"
-        "1. Get one at https://aistudio.google.com/apikey (free tier).\n"
+        "**AI features need an OpenRouter API key** (free with the "
+        "`tencent/hy3:free` model).\n\n"
+        "1. Get one at https://openrouter.ai/keys.\n"
         "2. **Locally:** add it to `.streamlit/secrets.toml` as "
-        "`GEMINI_API_KEY = \"your-key\"` (this file is git-ignored).\n"
-        "3. **On Streamlit Cloud:** add `GEMINI_API_KEY` under the app's "
+        "`OPENROUTER_API_KEY = \"your-key\"` (this file is git-ignored).\n"
+        "3. **On Streamlit Cloud:** add `OPENROUTER_API_KEY` under the app's "
         "**Settings → Secrets**.\n\n"
         "Then reload this page. The AI never fabricates content -- it only "
         "rewrites what you've already entered."
@@ -91,30 +99,35 @@ def render_unavailable_notice() -> None:
 # --- Core call -----------------------------------------------------------------
 
 def _generate(prompt: str, temperature: float = 0.4) -> str:
-    """Send one prompt to Gemini and return the trimmed text response."""
+    """Send one prompt to the model (OpenRouter) and return the trimmed text."""
     key = _api_key()
     if not key:
-        raise AIError("No Gemini API key configured.")
+        raise AIError("No OpenRouter API key configured.")
 
     # Imported lazily so a missing package never breaks unrelated pages.
-    from google import genai
-    from google.genai import types
+    from openai import OpenAI
 
     try:
-        client = genai.Client(api_key=key)
-        response = client.models.generate_content(
+        client = OpenAI(
+            api_key=key,
+            base_url=_base_url(),
+            default_headers={"X-Title": "AI Resume Builder"},  # optional OpenRouter attribution
+        )
+        response = client.chat.completions.create(
             model=_model_name(),
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=_SYSTEM_PROMPT,
-                temperature=temperature,
-                max_output_tokens=1024,
-            ),
+            messages=[
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=temperature,
+            max_tokens=1024,
         )
     except Exception as exc:  # noqa: BLE001 -- surface any API problem to the caller
         raise AIError(str(exc)) from exc
 
-    text = (response.text or "").strip()
+    if not response.choices:
+        raise AIError("The model returned no choices. Try again.")
+    text = (response.choices[0].message.content or "").strip()
     if not text:
         raise AIError("The model returned an empty response. Try again.")
     return text

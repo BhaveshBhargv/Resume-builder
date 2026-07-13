@@ -33,6 +33,7 @@ PAGES: List[PageInfo] = [
     PageInfo("skills", "pages/6_🛠️_Skills.py", "Skills", "🛠️"),
     PageInfo("review", "pages/7_📄_Review.py", "Review", "📄"),
     PageInfo("ats", "pages/8_🎯_ATS_Match.py", "ATS Match", "🎯"),
+    PageInfo("download", "pages/9_⬇️_Download.py", "Download", "⬇️"),
 ]
 
 

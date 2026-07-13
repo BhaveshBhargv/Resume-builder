@@ -33,20 +33,31 @@ def month_year_input(value: str, key_prefix: str) -> str:
     still on its placeholder option.
     """
     default_month, default_year = parse_month_year(value)
+
+    # A stored year can fall outside the default dropdown range -- e.g. an
+    # expected future graduation date ("Sep 2028") parsed from an uploaded
+    # resume, or a very old date. Inject it so the value is preserved and
+    # selectable rather than crashing list.index() on render.
+    year_options = _YEAR_OPTIONS
+    if default_year not in year_options:
+        year_options = [_YEAR_OPTIONS[0], default_year] + _YEAR_OPTIONS[1:]
+    month_index = _MONTH_OPTIONS.index(default_month) if default_month in _MONTH_OPTIONS else 0
+    year_index = year_options.index(default_year) if default_year in year_options else 0
+
     col1, col2 = st.columns(2)
     with col1:
         month = st.selectbox(
             "Month",
             _MONTH_OPTIONS,
-            index=_MONTH_OPTIONS.index(default_month),
+            index=month_index,
             key=f"{key_prefix}_month",
             label_visibility="collapsed",
         )
     with col2:
         year = st.selectbox(
             "Year",
-            _YEAR_OPTIONS,
-            index=_YEAR_OPTIONS.index(default_year),
+            year_options,
+            index=year_index,
             key=f"{key_prefix}_year",
             label_visibility="collapsed",
         )

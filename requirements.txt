@@ -13,9 +13,10 @@ scikit-learn>=1.5.1
 # extractor instead, which is more robust in a sandboxed environment.
 # spacy>=3.7.5
 
-# Phase 4 -- AI rewriting via Google Gemini (has a free API tier; the original
-# stack named OpenAI, but Gemini's free tier lets the deployed app run at no cost).
-google-genai>=1.0.0
+# Phase 4 -- AI rewriting via Tencent Hunyuan 3 (tencent/hy3:free) through
+# OpenRouter's OpenAI-compatible API. The openai SDK is the client; base URL,
+# model, and key are configurable so any OpenAI-compatible endpoint works.
+openai>=1.40.0
 
-# Document export -- added when export feature is built
-# reportlab>=4.2.2
+# Document export -- Word (python-docx, above) and PDF (reportlab)
+reportlab>=4.2.2
